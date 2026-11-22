@@ -1,355 +1,365 @@
+<div align="center">
+
+<img src="docs/images/icon.png" width="128" alt="DSH Flick icon">
+
 # DSH Flick
 
-**macOS 菜单栏里的 DeepSeek Harness 快捷入口。** 支持两种运行方式：
+**Approve DeepSeek Harness permissions from any window.**
 
-- **独立版**：点击菜单栏图标弹出 460×660 面板，内嵌已认证的 DeepSeek Harness Web 界面；
-- **DSH 插件模式**：由 DSH 插件托管，使用轻量原生小面板（打开主窗口 / 新建会话 / 最近会话 / 待审批权限），DSH 打开时出现，退出时自动消失。
+A small macOS menu bar companion for DeepSeek Harness (DSH). When DSH asks for a permission while
+its window is out of sight, the request shows up in the menu bar, and one click answers it.
 
-![DSH Flick 菜单栏图标](Resources/MenuIcon@2x.png)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#install)
+[![Universal](https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-black)](#install)
+[![Swift](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](#development)
+[![DSH plugin](https://img.shields.io/badge/DSH-%E2%89%A5%200.2.2--rc.5-1f6feb)](#install)
+[![Release](https://img.shields.io/github/v/release/rigelmansid/dsh-flick)](https://github.com/rigelmansid/dsh-flick/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-> 非官方个人项目，与 DeepSeek 官方无关。本项目图标为原创，不包含 DeepSeek 官方图形资产；详见[商标与致谢](#商标与致谢)。
+**English** · [简体中文](README.zh-CN.md)
+
+</div>
+
+<p align="center">
+  <img src="docs/preview.svg" width="560" alt="Sketch of the DSH Flick panel under the menu bar: connection status, Open and New session buttons, recent sessions">
+</p>
+
+> Unofficial personal project, not affiliated with DeepSeek. The icons are original and contain no
+> DeepSeek artwork. See [Trademarks and thanks](#trademarks-and-thanks).
 
 ---
 
-## 功能特性
+## Why DSH Flick
 
-- **菜单栏常驻图标**：原创单色模板图标，自动适配浅色 / 深色菜单栏；离线时图标变暗。
-- **两种界面**：独立版是 460×660 的 WebView 面板；插件模式是轻量原生小面板，可显示连接状态、最近会话和快捷动作。
-- **插件托管生命周期**：插件启动 `/插件目录/resources/DSH Flick.app --managed --native-menu`，退出 DSH 或禁用插件时通过 stdin EOF / 父进程检测自动结束，不会留下后台进程或登录项。
-- **最近会话**：插件 Host 通过 `ctx.sessionQuery` 读取最近 5 个顶层会话，点击直接跳转。
-- **菜单栏审批**：DSH 主窗口最小化、切到别的 Space 或被别的应用全屏遮挡时，新权限请求会显示在菜单栏面板中；每条注明来源会话、权限说明，并可直接「拒绝 / 允许一次」或「查看详情」跳回该会话。多个审批纵向堆叠、面板增高并支持滚动；插件设置可关闭自动弹出，只保留红色数量角标。
-- **快捷动作桥接**：菜单栏 app 通过回环 `/dsh-flick/api/*` 让 DSH 页面执行 `uiWorkspace.startSession()` / `openSession()`，不需要辅助功能权限。
-- **右键菜单**：显示面板、打开 DeepSeek Harness 主窗口、重新连接、重新加载界面、开机自启开关、关于、退出。
-- **新建对话**：面板头部「新建对话」按钮（以及菜单项）会自动在 Web UI 中点击「新建 / 新对话」入口。
-- **打开主窗口**：一键激活或启动 DeepSeek Harness 桌面应用。
-- **重新连接**：DeepSeek Harness 重启、换端口或登录态刷新后，重新发现服务并恢复内嵌会话。
-- **全局热键 `⌥⌘D`**（Option + Command + D）：在任何应用中显示 / 收起 DSH Flick 面板，无需辅助功能（Accessibility）权限。
-- **开机自启**：菜单中的「开机自启」开关，通过 `~/Library/LaunchAgents/com.rigelmansid.dshflick.plist` 实现，可随时关闭。
-- **离线启动 DSH**：DeepSeek Harness 未运行时不会只显示错误状态，而是给出「启动 DeepSeek Harness」按钮，点击后自动拉起桌面端并等待连接（最长约 45 秒）。
+- **Approve from wherever you are.** DSH window minimized, on another Space, or hidden behind a
+  full-screen app? A new permission request appears in the menu bar panel with the session it came
+  from and what it wants. **Reject** or **Allow once** right there, or **View details** to jump to
+  that session. You don't have to switch windows to keep an agent moving.
+- **Light on purpose.** One small native panel: open DSH, start a session, the five latest
+  sessions, pending approvals. No Dock icon, no third-party dependencies, no Accessibility
+  permission.
+- **Comes and goes with DSH.** The plugin starts it when DSH opens and it exits when DSH quits.
+  No login item, no leftover background process.
+- **Stays on this Mac.** It only talks to `127.0.0.1` and reads DSH's login state read-only.
 
-## 工作原理
+---
 
-DSH Flick 不修改 DeepSeek Harness 的任何文件，也不实现自己的聊天协议。它是一个**本机登录态复用器**：
+## Features
 
-1. **发现服务**：DeepSeek Harness 桌面端（Electron）启动后在 `127.0.0.1` 的随机端口上运行 Web 服务。DSH Flick 枚举本机回环 TCP 监听端口（`lsof`，必要时回退 `netstat`），对每个端口做一次**不带 cookie** 的 `GET /`，通过 DSH 特有的 `401 dsh web authentication required` 响应确认哪个端口属于 DSH，并按 DSH 进程名优先排序。
-2. **生成登录态**：DSH `0.2.2-rc.3` 起不再把 `dsh-auth-*` cookie 写入 Chromium cookie 库（改由桌面端进程内存持有），但会把浏览器会话的签名密钥持久化在 `~/.dsh/.credentials.yaml` 的 `client-connection/browser-session` 记录中。DSH Flick 以**只读**方式读取该密钥，按 DSH 自己的格式在本机生成一个绑定 `127.0.0.1:<port>` 的合法签名 cookie（HMAC-SHA256；默认 29 天，短于服务端的 30 天上限）。
-3. **兼容旧版**：DSH `0.2.2-rc.2` 及更早版本仍把 cookie 存在 Electron 的 Cookies SQLite 中（名字形如 `dsh-auth-<hash>`）。DSH Flick 会回退到只读读取该库、用 `base64url(sha256("127.0.0.1:<port>"))` 反推端口的方式，两边都失败才报错。
-4. **验证服务**：带 cookie 对 `http://127.0.0.1:<port>/` 发起一次本机请求，只有返回 `200` 且页面中包含 `__DSH_BOOT__` 才认为连接有效，避免误连到其他本地服务。
-5. **注入会话**：把该 cookie 写入 `WKWebView` 的 `WKWebsiteDataStore` 后加载本机页面；若 WebKit 拒绝 cookie store 注入，则回退为在页面内执行 `document.cookie = "..."` 后重载。
-6. **状态驱动**：`AppController` 负责发现 / 重连状态机，`DSHFlickController` 负责菜单栏、弹窗、WebView 与热键，二者通过 `DSHFlickUI` 协议解耦。
+### Approvals
+- Each card shows the session title, the requested permission, and **Reject / Allow once / View details**
+- Answers go through the same `PendingApproval.answer()` the DSH composer uses, so the menu bar and
+  the main window always agree on what's still pending
+- Several sessions waiting at once stack vertically; the panel grows to a cap, then scrolls
+- A red count badge stays on the icon while anything is pending
+- **Auto-open approval panel** (on by default) pops the panel up when DSH isn't visible. Turn it off
+  in the plugin settings to keep just the badge
 
-### 为什么登录态通常能一直用
+### Sessions
+- **Open DeepSeek Harness**: bring the main window forward, or launch it
+- **New session**: start one in the current or most recent workspace and open it
+- **Recent sessions**: the five latest top-level sessions, one click to jump
 
-DSH 服务端接受最长 **30 天**的签名 cookie；DSH Flick 每次发现时都会用持久化密钥**重新生成**新 cookie，因此不受旧 cookie 过期影响（只要 `~/.dsh/.credentials.yaml` 仍在且 DSH 没有重置该密钥）。DeepSeek Harness 重启后端口会变化，DSH Flick 会重新枚举端口并生成对应 authority 的 cookie，**自动重新发现新端口**，无需手工配置。
+### Menu bar
+- Original monochrome template icon that follows the light or dark menu bar, dimmed when offline
+- Global hotkey **⌥⌘D** shows or hides the panel from any app, using Carbon `RegisterEventHotKey`
+  (no Accessibility or Input Monitoring permission)
+- **Hide icon** removes it for this DSH run; it comes back next time DSH starts
 
-## 安全与隐私
+---
 
-- **仅本机通信**：DSH Flick 只访问 `127.0.0.1` 回环地址，不连接任何外部服务器，也不上传任何数据。
-- **只读登录态**：`~/.dsh/.credentials.yaml` 与（旧版兼容路径下的）Electron Cookies SQLite 都只以只读方式打开；DSH Flick 绝不写入、修改或删除 DSH 的登录态或凭证文件。
-- **不修改 DSH 安装**：不注入、不 patch、不改配置，卸载 DSH Flick 不会影响 DeepSeek Harness。
-- **不打印敏感信息**：日志与 `--discover` 输出只包含端口、cookie 名称与过期时间，**从不输出密钥或 cookie 值**。
-- **cookie 用途单一**：生成的 cookie 仅注入到本机 DSH Web UI 的 `WKWebView` 会话，只发往 `127.0.0.1:<端口>`，不会用于任何其他站点。
-- **无额外系统权限**：全局热键使用 Carbon `RegisterEventHotKey`，**不需要辅助功能 / 输入监控 / 屏幕录制权限**；应用为 `LSUIElement`，不显示 Dock 图标。
-- **ad-hoc 签名**：本地构建产物使用 ad-hoc 签名（`codesign --sign -`），仅适合本机自用，非 App Store / 公证分发。
+## Two ways to run
 
-## 系统要求
+| | **Plugin mode** (recommended) | **Standalone app** |
+| --- | --- | --- |
+| Started by | the DSH plugin, with DSH | you, or a login item you turn on |
+| Panel | small native panel: approvals, sessions, quick actions | 460×660 panel embedding the signed-in DSH web UI |
+| Approvals in the menu bar | ✅ | — |
+| Quits | when DSH quits or the plugin is disabled | when you quit it |
 
-| 项目 | 要求 |
-| --- | --- |
-| 操作系统 | macOS 14 Sonoma 或更高版本 |
-| 架构 | Apple Silicon（arm64）或 Intel（x86_64），按本机架构构建 |
-| 构建工具 | Xcode Command Line Tools（提供 `swiftc`；`xcode-select --install`） |
-| 运行依赖 | 已安装并登录过 DeepSeek Harness 桌面版（`/Applications/DeepSeek Harness.app`） |
-| 图标生成（可选） | Python 3.9+ 与 Pillow（仅在重新生成菜单栏图标或手动指定时用到） |
+The rest of this README is mostly about plugin mode. The standalone app is covered under
+[Standalone app](#standalone-app).
 
-DSH Flick 本身**没有第三方依赖**，只使用系统 AppKit / WebKit / Carbon 框架。
+---
 
-## 构建
+## Install
 
-```bash
-cd dsh-flick
+**Requires** macOS 14 or later and the DeepSeek Harness desktop app (`/Applications/DeepSeek Harness.app`),
+signed in at least once. Approvals need DSH `0.2.2-rc.5` or later; on older versions the approval
+section hides itself and everything else still works.
 
-./scripts/build.sh             # Release 构建 -> dist/DSH Flick.app（推荐）
-./scripts/build.sh --debug     # 调试构建，编译更快
-./scripts/build.sh --universal # arm64 + x86_64 universal 二进制
-./scripts/build.sh --run       # 构建完成后立即打开应用
-./scripts/build-plugin.sh      # 构建并复制到 plugin/resources/（DSH 插件包）
-./scripts/build-plugin.sh --universal  # 发行用 universal 插件包
-```
-
-构建脚本会依次执行：
-
-1. 用 `swiftc` 直接编译 `Sources/**/*.swift`（不使用 SwiftPM，无需 `Package.swift`）；
-2. 校验 `Resources/MenuIcon*.png` 尺寸并组装 `dist/DSH Flick.app`（写入 `Info.plist`、复制图标）；
-3. 使用 `/usr/bin/codesign --force --deep --sign -` 做 ad-hoc 签名并校验。
-
-脚本可重复执行（幂等），结束时打印 `.app` 的完整路径。构建产物结构：
-
-```text
-dist/DSH Flick.app/
-└── Contents/
-    ├── Info.plist
-    ├── MacOS/DSHFlick
-    └── Resources/
-        ├── AppIcon.icns
-        ├── MenuIcon.png      # 18×18
-        ├── MenuIcon@2x.png   # 36×36
-        └── MenuIcon@3x.png   # 54×54
-```
-
-等价的手动编译命令：
-
-```bash
-swiftc -O -swift-version 5 \
-  -module-cache-path .build/modulecache \
-  -target "$(uname -m)-apple-macos14.0" \
-  -framework AppKit -framework SwiftUI -framework Combine -framework WebKit -framework Carbon \
-  -o .build/DSHFlick \
-  $(find Sources -name '*.swift' | sort)
-```
-
-### 运行构建产物
-
-```bash
-open "dist/DSH Flick.app"          # 以正常 .app 方式启动（菜单栏出现图标）
-./dist/DSH\ Bar.app/Contents/MacOS/DSHFlick   # 直接运行可执行文件
-```
-
-### 命令行诊断
-
-同一个可执行文件还内置了用于排障 / 验收的 CLI 模式：
-
-```bash
-# 发现当前的 DSH 服务端口并生成本机登录 cookie（不输出密钥 / cookie 值）
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --discover
-
-# 无头加载已认证 Web UI，导出 DOM 摘要并截图
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --probe /tmp/dsh-probe.png
-
-# 检查 DSH 插件桥接状态（需要已安装并启用插件）
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --bridge-check
-
-# 列出最近会话（JSON，供验收/排障）
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --bridge-recent
-
-# 模拟菜单栏动作：new-session / open-session <sessionId>
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --bridge-action new-session
-
-# 查看当前待审批（JSON）
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --bridge-approvals
-
-# 回传一次审批决定（排障 / 验收）
-"./dist/DSH Flick.app/Contents/MacOS/DSHFlick" --bridge-answer <key> rejected <clientId>
-```
-
-`--discover` 成功时输出形如 `{"ok":true,"port":62697,...}`；`--probe` 会额外生成 PNG 快照，便于确认内嵌会话是否已认证。
-
-## 安装与卸载
-
-### 安装
-
-```bash
-./scripts/build.sh              # 先构建
-./scripts/install.sh            # 安装到 ~/Applications/DSH Flick.app
-./scripts/install.sh --launch   # 安装并立即启动
-```
-
-安装脚本**无需 sudo**，只写入当前用户目录：
-
-- 应用：`~/Applications/DSH Flick.app`
-- 开机自启（仅当在菜单里勾选时）：`~/Library/LaunchAgents/com.rigelmansid.dshflick.plist`
-
-脚本会在安装 / 删除前校验所有目标路径都位于 `$HOME` 之下，并拒绝以 root 身份运行。
-
-### 从 GitHub 安装
+### As a DSH plugin
 
 ```bash
 dsh plugin --profile desktop add "git+https://github.com/rigelmansid/dsh-flick.git"
 ```
 
-安装后在 DSH 左侧栏 **插件** 页面启用 `DSH Flick`。GitHub Release 也提供
-`dsh-flick-0.2.0.tgz`，可下载后作为本地包安装。
+Then open the **Plugins** panel in the left sidebar of the DSH main window, enable **DSH Flick**,
+and restart DSH once. The icon appears in the menu bar while DSH is running.
 
-### 作为本地源码插件安装
+> Use the **Plugins** panel to enable or disable it. **Settings → Built-in plugins** is a read-only
+> list; it shows the status but has no toggle.
 
-```bash
-./scripts/build-plugin.sh
-```
+You can also download `dsh-flick-<version>.tgz` from
+[Releases](https://github.com/rigelmansid/dsh-flick/releases/latest) and install it as a local
+package.
 
-然后在 DSH 主窗口左侧栏的 **插件**（Plugins）页面安装本地目录 `dsh-flick/plugin`
-（或让 agent 用 `plugin_manager install_bundle` 安装）。安装后重启一次 DSH，菜单栏会出现
-轻量原生面板；禁用插件或退出 DSH 时图标消失。
+If the standalone app is already running when the plugin starts, the plugin's copy exits at once
+(one instance at a time). Quit the standalone app before you switch to plugin mode.
 
-> **启停入口是左侧栏的「插件」页面**，不是「设置 → 内置插件」；后者只是只读的内置插件清单，
-> 只显示配置状态和运行状态，不能开关。
+### Standalone app
 
-插件包通过本地目录安装时，DSH 会把它链接到源码目录；不要删除或移动 `dsh-flick/`。
-发行用包可以用 `./scripts/build-plugin.sh --universal` 构建，再用 npm/pnpm 打包分发。
-
-### 卸载
+Download `DSHFlick-<version>-macos-universal.zip` from
+[Releases](https://github.com/rigelmansid/dsh-flick/releases/latest), unzip it, and move
+`DSH Flick.app` to `~/Applications`, or build and install it from source:
 
 ```bash
-./scripts/install.sh --uninstall
+git clone https://github.com/rigelmansid/dsh-flick.git
+cd dsh-flick
+./scripts/build.sh              # -> dist/DSH Flick.app
+./scripts/install.sh --launch   # copy to ~/Applications and open it
 ```
 
-卸载会：退出正在运行的 DSH Flick → 移除开机自启项（`~/Library/LaunchAgents/com.rigelmansid.dshflick.plist`）
-→ 删除 `~/Applications/DSH Flick.app`。**不会触碰 DeepSeek Harness 本体。**
+The app is **ad-hoc signed and not notarized**. A copy downloaded in a browser is blocked on first
+launch: Control-click it and choose **Open**, or allow it under **System Settings → Privacy &
+Security**. A copy you build yourself opens normally.
 
-### 开发调试
+`install.sh` needs no `sudo` and writes only under your home folder. **Launch at login** in the
+right-click menu adds `~/Library/LaunchAgents/com.rigelmansid.dshflick.plist`; turning it off removes it.
 
-```bash
-./scripts/run-dev.sh   # 调试构建 + 启动 dist 中的 app，适合反复迭代
-```
+### Uninstall
 
-## 菜单与热键
+- **Plugin:** remove it in the DSH **Plugins** panel.
+- **Standalone app:** `./scripts/install.sh --uninstall` quits the app, removes the login item and
+  deletes `~/Applications/DSH Flick.app`.
 
-### 独立版（完整 WebView 面板）
+Neither touches DeepSeek Harness itself.
 
-| 操作 | 入口 | 说明 |
-| --- | --- | --- |
-| 打开 / 收起面板 | 左键点击菜单栏图标、`⌥⌘D` | 弹出或收起内嵌 DSH 面板 |
-| 右键菜单 | 右键 / `Control` + 点击菜单栏图标 | 打开下方各项所在的菜单 |
-| 新建对话 | 面板头部「新建对话」按钮、右键菜单「新建对话」（`⌘N`） | 自动在 Web UI 中点击新建入口 |
-| 重新加载界面 | 面板头部刷新按钮、右键菜单「重新加载界面」 | 重新加载 WebView 内容 |
-| 在桌面打开 | 面板头部按钮「在桌面打开 DeepSeek Harness」 | 打开 DeepSeek Harness 主窗口 |
-| 打开主窗口 | 右键菜单「打开 DeepSeek Harness 主窗口」 | 激活或启动桌面端 |
-| 重新连接 | 右键菜单「重新连接」 | 重新发现服务与登录态，并显示面板 |
-| 开机自启 | 右键菜单「开机自启」开关 | 写入 / 移除 LaunchAgent（仅以 .app 形式运行时显示） |
-| 关于 | 右键菜单「关于 DSH Flick」 | 版本与说明 |
-| 退出 | 右键菜单「退出 DSH Flick」（`⌘Q`） | 结束菜单栏进程 |
+---
 
-> `⌘N` / `⌘Q` 是右键菜单展开时的菜单快捷键；`⌥⌘D` 是任意应用中都可用的全局热键。
-> 面板为 `NSPopover` 临时窗口：点击面板外部或按 `Esc` 会自动收起。
+## Using it
 
-### 插件模式（轻量原生面板）
+### Plugin mode
 
-| 操作 | 说明 |
+| Action | What it does |
 | --- | --- |
-| 左键点击图标 / `⌥⌘D` | 显示或收起原生小面板 |
-| 打开 DeepSeek Harness | 激活主窗口 |
-| 新建会话 | 让 DSH 页面在当前/最近工作区新建会话并打开 |
-| 最近会话 | 显示最近 5 个顶层会话，点击跳转 |
-| 待审批 | 显示每个会话当前的权限请求；拒绝 / 允许一次 / 查看详情；面板最多增高到 760pt，超出内部滚动 |
-| 重新连接 | 重新发现服务并刷新桥接数据 |
-| 隐藏图标 | 结束本次运行的菜单栏进程；插件不会自动重拉，DSH 重启后恢复 |
-| 右键 | 打开/新建/最近会话/重新连接/关于/隐藏 |
-| 红色角标 | 有等待处理的审批时显示数量；可在 DSH 插件设置中关闭自动弹出 |
+| Click the icon / **⌥⌘D** | Show or hide the panel |
+| **Open DeepSeek Harness** | Bring the main window forward |
+| **New session** | Start a session in the current or latest workspace and open it |
+| Recent sessions | Jump to one of the five latest top-level sessions |
+| Pending approval | **Reject**, **Allow once**, or **View details** to open that session |
+| **Reconnect** | Rediscover DSH and refresh the panel |
+| **Hide icon** | End the menu bar process for this DSH run |
+| Right-click | Open, new session, recent sessions, reconnect, about, hide |
 
-> 插件模式下，退出 DSH、禁用插件或插件崩溃都会让图标消失；DSH 重新启动后恢复。
+### Standalone app
 
-## 重新生成菜单栏图标
+| Action | What it does |
+| --- | --- |
+| Click the icon / **⌥⌘D** | Show or hide the embedded DSH panel; click outside or press `Esc` to close |
+| **New chat** (panel header, or `⌘N` in the right-click menu) | Clicks the new-chat entry in the web UI |
+| Reload | Reload the embedded page |
+| **Open DeepSeek Harness** | Activate or launch the desktop app |
+| **Reconnect** | Rediscover the service and login state |
+| **Launch at login** | Add or remove the login item |
+| **Quit** (`⌘Q`) | Quit DSH Flick |
 
-本项目使用**原创图标**：应用图标是蓝色圆角方块 + 三条白色横线 + 绿色状态点；菜单栏图标是同形状的黑色模板图（透明背景），由系统自动着色适配浅色 / 深色菜单栏。
+When DSH isn't running, the panel offers **Launch DeepSeek Harness** and waits up to about 45 seconds
+for it to come up.
+
+---
+
+## How it works
+
+DSH Flick doesn't modify DeepSeek Harness or speak its own chat protocol. It finds the DSH desktop
+app's local web service and reuses its login.
+
+1. **Find the service.** The DSH desktop app serves its web UI on a random `127.0.0.1` port.
+   DSH Flick lists local listening ports (`lsof`, falling back to `netstat`) and sends each a
+   cookie-less `GET /`. DSH answers `401 dsh web authentication required`, which identifies it.
+2. **Sign a session cookie.** Since DSH `0.2.2-rc.3`, the browser-session signing key lives in
+   `~/.dsh/.credentials.yaml`. DSH Flick reads it **read-only** and signs a cookie bound to
+   `127.0.0.1:<port>` in DSH's own format (HMAC-SHA256, 29 days, under the server's 30-day cap).
+   Older DSH versions kept the cookie in Electron's Cookies SQLite; that path is still supported,
+   also read-only.
+3. **Check it.** A request with the cookie must return `200` and a page containing `__DSH_BOOT__`,
+   so it never attaches to some other local service.
+4. **Use it.** The standalone app loads the page in a `WKWebView` with that cookie. In plugin mode,
+   the native panel talks to the plugin over a loopback bridge, and the plugin's page half runs
+   the actions inside DSH.
+
+A fresh cookie is signed on every discovery, so expiry and DSH's port changing on restart are
+handled without any setup.
+
+<details>
+<summary><b>Plugin bridge routes</b></summary>
+
+| Route | Purpose |
+| --- | --- |
+| `GET /dsh-flick/api/ping` | bridge health and page heartbeat |
+| `GET /dsh-flick/api/recent?limit=5` | recent sessions from `ctx.sessionQuery` |
+| `POST /dsh-flick/api/action` | queue `new-session` / `open-session` |
+| `GET /dsh-flick/api/pending` | page polls queued commands |
+| `POST /dsh-flick/api/ack` | page reports a command ran |
+| `POST /dsh-flick/api/approvals/sync` | page mirrors its pending approvals |
+| `GET /dsh-flick/api/approvals` | pending approvals and the auto-open setting |
+| `POST /dsh-flick/api/approval-answer` | queue an allow / reject decision for the page |
+
+The page half calls `ctx.uiWorkspace.startSession()` / `openSession(id)` and mirrors
+`ctx.uiSession.sessionStatus.pendingInteraction`. The listener is loopback-only, and requests are
+checked against the DSH browser credential when the connection service is available.
+
+The plugin starts `resources/DSH Flick.app --managed --native-menu` with a stdin pipe held open. The
+app exits when the pipe closes or the DSH host process disappears.
+</details>
+
+---
+
+## Privacy and safety
+
+- **Loopback only.** DSH Flick talks to `127.0.0.1` and nothing else. No analytics, no other hosts.
+- **Read-only login state.** `~/.dsh/.credentials.yaml` and the legacy Cookies database are opened
+  read-only. DSH Flick never writes, changes or deletes DSH's credentials.
+- **No changes to DSH.** Nothing is injected or patched; removing DSH Flick leaves DSH as it was.
+- **No secrets in output.** Logs and `--discover` print the port, cookie name and expiry, never a
+  key or cookie value.
+- **No extra permissions.** No Accessibility, Input Monitoring or Screen Recording. `LSUIElement`,
+  so no Dock icon.
+
+---
+
+## FAQ
+
+<details>
+<summary><b>The icon doesn't appear in plugin mode</b></summary>
+
+- Make sure the plugin is enabled in the **Plugins** panel (not Settings → Built-in plugins), then
+  restart DSH once.
+- If the standalone app is running, the plugin's copy steps aside. Quit the standalone app and
+  restart DSH.
+- If you used **Hide icon**, it returns the next time DSH starts.
+</details>
+
+<details>
+<summary><b>Approvals don't show up in the menu bar</b></summary>
+
+- Approvals need DSH `0.2.2-rc.5` or later.
+- With auto-open off, a new request only adds the red badge; click the icon to see it.
+- Each session shows one pending request at a time, as DSH does.
+</details>
+
+<details>
+<summary><b>Can I always allow a permission from the menu bar?</b></summary>
+
+No. The menu bar offers **Allow once** and **Reject**. For anything else, use **View details** to
+answer in the main window.
+</details>
+
+<details>
+<summary><b>It says DSH isn't running, or no login was found</b></summary>
+
+Open the DeepSeek Harness main window once (sign in if asked), then choose **Reconnect**. If the
+desktop app is running but its web service isn't listening yet, wait a moment and reconnect.
+</details>
+
+<details>
+<summary><b>⌥⌘D does nothing</b></summary>
+
+Another app has taken the shortcut. Click the menu bar icon instead, or quit the app that holds it.
+The hotkey isn't configurable yet.
+</details>
+
+<details>
+<summary><b>macOS says the app can't be opened</b></summary>
+
+The app is ad-hoc signed and not notarized. Control-click it and choose **Open**, or allow it under
+**System Settings → Privacy & Security**. If you trust the copy, `xattr -dr com.apple.quarantine "DSH Flick.app"`
+also works. Building it yourself avoids the prompt.
+</details>
+
+---
+
+## Known limitations
+
+- **Desktop DSH only.** It relies on the Electron app's local web service; CLI-only or remote DSH
+  isn't supported.
+- **Tied to DSH internals.** Login state and the plugin bridge depend on how DSH stores its signing
+  key and exposes `uiWorkspace` / `uiSession`. A large DSH change may need an update; if the bridge
+  is unavailable, the panel falls back to open + status.
+- **Fixed hotkey.** `⌥⌘D` can't be changed yet.
+- **Not notarized, no auto-update.** Ad-hoc signed, meant for personal use.
+- **Local plugin installs are linked.** Installing from a local folder links DSH to it; moving or
+  deleting the folder breaks the plugin. Use the release `.tgz` to avoid that.
+
+---
+
+## Development
+
+Command Line Tools are enough (`xcode-select --install`); Xcode and SwiftPM aren't used.
 
 ```bash
-./scripts/make-icons.sh     # 重新生成 Resources/MenuIcon*.png 与 AppIcon.icns
+./scripts/build.sh                     # release build -> dist/DSH Flick.app
+./scripts/build.sh --debug             # faster debug build
+./scripts/build.sh --universal         # arm64 + x86_64
+./scripts/build-plugin.sh              # build and copy into plugin/resources/
+./scripts/build-plugin.sh --universal  # universal plugin package for release
+./scripts/run-dev.sh                   # debug build and launch
+./scripts/make-icons.sh                # regenerate menu bar and app icons (needs Pillow)
 ```
 
-脚本会自动寻找带 Pillow 的 Python：优先 `$PYTHON`，其次 DeepSeek Harness 自带的运行时 Python，最后是 Homebrew / 系统 `python3`。也可以直接调用：
+<details>
+<summary><b>Command-line diagnostics</b></summary>
+
+The same executable has diagnostic modes:
 
 ```bash
-PYTHON=/path/to/python3 python3 scripts/make-icons.py
+APP="./dist/DSH Flick.app/Contents/MacOS/DSHFlick"
+"$APP" --discover                   # find the DSH port and sign a cookie (prints no secrets)
+"$APP" --probe /tmp/dsh-probe.png   # load the web UI headless, dump a DOM summary and screenshot
+"$APP" --bridge-check               # plugin bridge status
+"$APP" --bridge-recent              # recent sessions as JSON
+"$APP" --bridge-action new-session  # or: open-session <sessionId>
+"$APP" --bridge-approvals           # pending approvals as JSON
+"$APP" --bridge-answer <key> rejected <clientId>
 ```
+</details>
 
-生成脚本不读取、不复制 DeepSeek Harness 的任何图形资产。
-
-## 目录结构
+<details>
+<summary><b>Project layout</b></summary>
 
 ```text
-dsh-flick/
-├── Sources/
-│   └── DSHFlick/
-│       ├── main.swift              # 入口：--discover / --probe / --bridge-* / 菜单栏应用
-│       ├── App/                    # 菜单栏 UI 与状态机
-│       │   ├── AppController.swift # 发现 / 重连 / 拉起桌面端的状态机
-│       │   ├── DSHFlickUI.swift      # UI 协议
-│       │   ├── DSHFlickController.swift  # 独立版：状态项、弹窗、右键菜单、全局热键
-│       │   ├── NativeMenuController.swift # 插件模式：原生小面板、桥接动作、隐藏
-│       │   ├── NativePanelModel.swift # 原生面板状态模型
-│       │   ├── NativePanelView.swift  # SwiftUI 原生面板
-│       │   ├── BridgeAPI.swift     # /dsh-flick/api 客户端
-│       │   ├── ManagedLifecycle.swift # 插件托管的 stdin/父进程退出
-│       │   ├── PanelViewController.swift # 独立版面板布局、状态渲染、toast
-│       │   ├── PanelChrome.swift   # 头部 / 空状态等原生控件与图标加载
-│       │   ├── WebPane.swift       # WKWebView、cookie 注入、新建对话 JS
-│       │   ├── GlobalHotKey.swift  # Carbon 全局热键 ⌥⌘D
-│       │   └── LaunchAtLogin.swift # 开机自启 LaunchAgent 管理
-│       └── Core/                   # 发现层
-│           ├── Models.swift        # DSHConnection / 错误 / 应用状态
-│           ├── DSHDiscovery.swift  # 端口枚举 + 签名 cookie 生成（兼容旧版 cookie 回放）
-│           ├── DSHDesktop.swift    # 定位 / 启动 / 激活桌面端
-│           ├── InstanceLock.swift  # 单实例 flock
-│           └── Probe.swift         # 无头探针（截图 + DOM 摘要）
-├── plugin/                         # DSH 插件包（Host + Client + 内置 app）
-│   ├── package.json
-│   ├── cordis.patch.yml
-│   ├── index.js / client.js
-│   ├── resources/DSH Flick.app       # build-plugin.sh 生成
-│   ├── locale/ / docs/ / icon.svg
-│   └── README.md
-├── Resources/                      # 随 app 打包的资源
-│   ├── AppIcon.icns                # 原创应用图标
-│   └── MenuIcon{,@2x,@3x}.png      # 原创菜单栏模板图标 18/36/54 px
-├── scripts/
-│   ├── build.sh                    # swiftc 编译 + 组装 dist/DSH Flick.app + ad-hoc 签名
-│   ├── build-plugin.sh             # 构建并复制到 plugin/resources
-│   ├── install.sh                  # 安装 / 卸载到 ~/Applications
-│   ├── run-dev.sh                  # 调试构建并启动
-│   ├── make-icons.py               # 图标生成（Pillow，当前图标已生成）
-│   └── make-icons.sh               # 图标生成包装脚本
-├── verify/                         # 端到端验收产物（截图 / 日志，可选）
-├── dist/                           # 构建输出（git 忽略）
-├── .build/                         # 编译中间产物（git 忽略）
-└── README.md
+Sources/DSHFlick/
+  main.swift     entry point: menu bar app or a diagnostic mode
+  App/           menu bar UI: standalone WebView panel, native plugin panel, bridge client,
+                 hotkey, managed lifecycle, login item
+  Core/          discovery: port scan, cookie signing, desktop launch, single-instance lock, probe
+plugin/          DSH plugin: host half (index.js), page half (client.js), bundled app, locales
+Resources/       app icon and menu bar template icons
+scripts/         build, plugin packaging, install, icon generation
 ```
+</details>
 
-## 打包细节
+<details>
+<summary><b>Info.plist keys</b></summary>
 
-`dist/DSH Flick.app/Contents/Info.plist` 中的关键字段：
+| Key | Value |
+| --- | --- |
+| `CFBundleIdentifier` | `com.rigelmansid.dshflick` (also the login item label) |
+| `CFBundleExecutable` | `DSHFlick` |
+| `LSUIElement` | `true`, menu bar only |
+| `LSMinimumSystemVersion` | `14.0` |
+| `NSAppTransportSecurity.NSAllowsLocalNetworking` | `true`, to load `http://127.0.0.1` |
+</details>
 
-| Key | 值 | 作用 |
-| --- | --- | --- |
-| `CFBundleIdentifier` | `com.rigelmansid.dshflick` | Bundle ID（也用于开机自启 Label） |
-| `CFBundleExecutable` | `DSHFlick` | 可执行文件名 |
-| `LSUIElement` | `true` | 仅菜单栏应用，不显示 Dock 图标 |
-| `LSMinimumSystemVersion` | `14.0` | 最低系统版本 |
-| `NSHighResolutionCapable` | `true` | 支持 Retina |
-| `CFBundleIconFile` | `AppIcon` | Finder / 关于窗口图标 |
-| `NSAppTransportSecurity.NSAllowsLocalNetworking` | `true` | 允许加载本机 `http://127.0.0.1` 页面 |
+---
 
-## 故障排查
+## Trademarks and thanks
 
-| 现象 | 可能原因 | 解决办法 |
-| --- | --- | --- |
-| 菜单栏看不到图标 | app 未启动；或启动后被系统结束 | 确认进程：`pgrep -fl DSHFlick`；重新执行 `open "dist/DSH Flick.app"`；打开控制台看崩溃日志 |
-| 面板提示「DeepSeek Harness 未运行」 | 桌面端未启动 | 点击面板里的「启动 DeepSeek Harness」，或直接打开桌面端，连接会自动恢复（最长等 45 秒） |
-| 面板提示「未找到登录态」 | 找不到 `~/.dsh/.credentials.yaml` 中的浏览器会话密钥，且旧版 cookie 也不可用 | 打开一次 DeepSeek Harness 主窗口并完成登录，然后在面板/菜单点「重新连接」 |
-| 提示「未找到 DeepSeek Harness 本地服务」 | 桌面端进程在运行，但 Web 服务尚未监听 / 已被关闭 | 稍等片刻点「重新连接」；或打开一次 DeepSeek Harness 主窗口，让本机 Web 服务启动 |
-| 提示「无法读取 DSH 登录态」 | 旧版兼容路径下 Cookies 数据库读取失败（权限 / 文件被占用 / 格式变化） | 确认 DSH 桌面版仍在运行；重启 DeepSeek Harness 后再试；必要时在 DeepSeek Harness 中重新登录 |
-| 面板白屏或一直显示 connecting | DSH 服务已重启 / 端口变化 / 登录态过期 | 点右键菜单「重新连接」，或面板头部的刷新按钮；若仍失败，重开 DeepSeek Harness 主窗口 |
-| `⌥⌘D` 没有反应 | 热键与其他应用冲突（少数全局热键工具会占用） | 改用左键点击菜单栏图标；退出占用该组合键的应用后重试 |
-| 勾选「开机自启」无效 | 登录项被系统设置禁用，或 app 未安装在 .app bundle 中 | 检查 `~/Library/LaunchAgents/com.rigelmansid.dshflick.plist` 是否存在；在「系统设置 › 通用 › 登录项与扩展」中确认允许；用 `./scripts/install.sh` 安装到 `~/Applications` |
-| 构建报 `swiftc not found` | 未安装 Xcode Command Line Tools | `xcode-select --install` 后重试 |
-| 构建报图标缺失 / 尺寸不符 | `Resources/` 被清理或图标被替换 | `./scripts/make-icons.sh` 重新生成原创图标 |
-| 图标生成失败（Pillow） | 默认 Python 没有 Pillow | `PYTHON=/path/to/python3 ./scripts/make-icons.sh`，或 `pip3 install Pillow` |
-| 首次启动提示「无法验证开发者」 | 从网络传输过的 app 被加上了 quarantine 标记 | 本机构建通常无此问题；如遇到可执行 `xattr -dr com.apple.quarantine "DSH Flick.app"`（自行确认来源可信） |
-| `codesign` 校验失败 | 修改了 app 内容导致签名失效 | 重新运行 `./scripts/build.sh`（会重新签名） |
+DSH Flick is an unofficial personal tool with no connection to DeepSeek. The app and menu bar icons
+are original (a blue rounded square with three white lines and a green status dot) and contain no
+DeepSeek artwork. **DeepSeek and DeepSeek Harness are trademarks of DeepSeek.** Thanks to the DSH
+team for the local web UI and plugin system that make this possible.
 
-## 已知限制
+## License
 
-- **独立版内嵌 Web UI**：完整面板展示的是 DSH 官方 Web UI，交互与外观跟随 DSH 版本；插件模式则是轻量原生面板，不提供完整聊天界面。
-- **仅支持 DeepSeek Harness 桌面版**：依赖 Electron 桌面端的本机 Web 服务与登录凭证；不适用于纯 CLI / 远程部署的 DSH。
-- **登录态依赖 DSH 内部存储结构**：当前读取 `~/.dsh/.credentials.yaml` 的浏览器会话密钥并据此生成 cookie；DSH 如果再次大幅调整登录态机制，DSH Flick 可能需要同步更新。
-- **密钥轮换后需重连**：若在 DSH 中重置了本机凭证（密钥变化），旧 cookie 会立即失效；DSH Flick 下次发现时会用新密钥重新生成。
-- **全局热键固定**：目前固定为 `⌥⌘D`，不支持自定义（与系统或其他工具冲突时只能改用鼠标操作）。
-- **本地 ad-hoc 签名，非 App Store 应用**：不提供公证、自动更新，也不适合对外分发。
-- **插件本地安装是软链**：通过本地目录安装时，DSH 链接到 `dsh-flick/plugin`，删除或移动源码目录会让插件失效；发行版应打包成 npm tarball。
-- **插件桥接依赖桌面端行为**：`/dsh-flick/api/*` 依赖 DSH 桌面页的 fetch 转发、客户端 `uiWorkspace` 服务，以及 `ctx.uiSession.sessionStatus` 的待审批投影；DSH 大版本升级后可能需要适配。桥接不可用时，面板自动退化为“打开 + 状态”。
-- **审批能力要求 DSH >= 0.2.2-rc.5**：页面内插件通过 `uiSession.sessionStatus` 读取 `PendingApproval` 并调用其 `answer()`；旧版本没有该投影时审批区自动隐藏，其余功能不受影响。审批是一次性授权，且同一会话同时只显示一条。
-
-## 商标与致谢
-
-- **DSH Flick** 是一个非官方的个人辅助工具，与 DeepSeek 官方无任何关联。
-- 本项目的应用图标与菜单栏图标均为原创（蓝色圆角方块 + 三条白色横线 + 绿色状态点），不包含 DeepSeek 官方图形资产。**DeepSeek、DeepSeek Harness 名称及相关商标归 DeepSeek 所有**；本项目为独立第三方工具，与 DeepSeek 官方无关联。
-- 感谢 DeepSeek Harness 提供优秀的本地 Web UI 与本机服务架构；感谢 macOS AppKit / WebKit / Carbon 框架。
-- 本项目不包含任何第三方依赖；请遵守你所在地区及 DeepSeek 的服务条款使用。
+[MIT](LICENSE)

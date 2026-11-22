@@ -35,6 +35,7 @@
     "plugin/LICENSE",
     "plugin/package.json",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE",
     "docs"
   ],

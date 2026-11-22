@@ -6,3 +6,4 @@ dist/
 verify/output/
 
 plugin/node_modules/
+!docs/images/*.png
