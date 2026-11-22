@@ -1,0 +1,58 @@
+{
+  "name": "dsh-flick",
+  "version": "0.2.0",
+  "description": "DSH Flick — macOS menu bar companion for DeepSeek Harness: quick open, recent sessions, and pending permission approvals.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rigelmansid/dsh-flick.git"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "macos",
+    "menu-bar",
+    "approval",
+    "sessions"
+  ],
+  "exports": {
+    ".": "./plugin/index.js",
+    "./client": "./plugin/client.js",
+    "./locale/*.json": "./plugin/locale/*.json",
+    "./icon": "./plugin/icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "plugin/index.js",
+    "plugin/client.js",
+    "plugin/cordis.patch.yml",
+    "plugin/resources/**",
+    "plugin/locale/*.json",
+    "plugin/docs",
+    "plugin/icon.svg",
+    "plugin/README.md",
+    "plugin/LICENSE",
+    "plugin/package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./plugin/cordis.patch.yml",
+      "platforms": [
+        "darwin"
+      ]
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.19.0"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.5 <0.3.0-0"
+  }
+}

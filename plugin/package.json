@@ -1,0 +1,44 @@
+{
+  "name": "dsh-flick",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness menu bar companion for macOS: open the app, start a session, jump to recent sessions, and approve pending permissions.",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.19.0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "resources/**",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md",
+    "package.json",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml",
+      "platforms": [
+        "darwin"
+      ]
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.5 <0.3.0-0"
+  }
+}

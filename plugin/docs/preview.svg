@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300" role="img" aria-label="DSH Flick native menu bar panel">
+  <rect width="640" height="300" rx="18" fill="#0f1720"/>
+  <rect x="24" y="22" width="592" height="18" rx="9" fill="#223044"/>
+  <circle cx="52" cy="31" r="5" fill="#7ee2a8"/>
+  <rect x="66" y="27" width="28" height="8" rx="4" fill="#dbe7f5" opacity="0.9"/>
+  <rect x="520" y="26" width="38" height="10" rx="5" fill="#dbe7f5" opacity="0.55"/>
+  <rect x="566" y="26" width="14" height="10" rx="5" fill="#7ee2a8" opacity="0.9"/>
+  <rect x="380" y="52" width="236" height="224" rx="16" fill="#16212e" stroke="#2a3a4e" stroke-width="1.5"/>
+  <circle cx="400" cy="76" r="5" fill="#7ee2a8"/>
+  <rect x="414" y="71" width="92" height="10" rx="5" fill="#eef5ff" opacity="0.92"/>
+  <rect x="400" y="92" width="76" height="8" rx="4" fill="#9db1c8" opacity="0.55"/>
+  <rect x="400" y="112" width="196" height="34" rx="9" fill="#1f6feb"/>
+  <rect x="414" y="123" width="110" height="10" rx="5" fill="#ffffff" opacity="0.96"/>
+  <rect x="400" y="154" width="196" height="34" rx="9" fill="#223044"/>
+  <rect x="414" y="165" width="76" height="10" rx="5" fill="#dbe7f5" opacity="0.85"/>
+  <rect x="400" y="198" width="56" height="8" rx="4" fill="#9db1c8" opacity="0.5"/>
+  <rect x="400" y="214" width="196" height="22" rx="7" fill="#223044" opacity="0.75"/>
+  <rect x="410" y="221" width="118" height="8" rx="4" fill="#dbe7f5" opacity="0.75"/>
+  <rect x="400" y="240" width="196" height="22" rx="7" fill="#223044" opacity="0.55"/>
+  <rect x="410" y="247" width="92" height="8" rx="4" fill="#dbe7f5" opacity="0.6"/>
+  <rect x="400" y="266" width="196" height="1" rx="0.5" fill="#2a3a4e"/>
+  <circle cx="414" cy="280" r="4" fill="#9db1c8" opacity="0.7"/>
+  <circle cx="472" cy="280" r="4" fill="#9db1c8" opacity="0.55"/>
+</svg>

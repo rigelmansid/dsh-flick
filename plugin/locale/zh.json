@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH Flick 菜单栏",
+    "description": "在 macOS 菜单栏快速打开 DeepSeek Harness、新建会话、跳转最近会话，并在主界面不可见时查看和批准权限请求。可在插件设置中关闭“审批自动弹出”。在 DSH 主窗口左侧栏「插件」页启用；设置 → 内置插件仅显示状态。重启 DSH 后图标随 DSH 打开/退出自动出现/消失；不需要辅助功能权限。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

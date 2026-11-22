@@ -1,0 +1,6 @@
+# DSH Flick bundle layer: the Host half owns the managed menu bar process and the
+# loopback bridge; the Client half executes UI navigation inside the DSH page.
+# The profile's own cordis.patch.yml remains the user's patch layer.
+- insert:
+    - id: dsh-flick
+      name: 'dsh-flick'

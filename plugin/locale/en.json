@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH Flick menu bar",
+    "description": "Open DeepSeek Harness, start a session, jump to recent sessions, and review or approve permission requests while the main window is hidden. Turn off automatic approval pop-ups in the plugin settings. Enable it from the Plugins panel in the main sidebar (Settings → Built-in plugins is read-only). The icon follows DSH; no Accessibility permission is required.",
+    "detail": "docs/DETAIL.en.md"
+  }
+}
