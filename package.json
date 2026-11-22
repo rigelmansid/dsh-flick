@@ -35,7 +35,8 @@
     "plugin/LICENSE",
     "plugin/package.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs"
   ],
   "dsh": {
     "bundle": {
