@@ -7,3 +7,4 @@ verify/output/
 
 plugin/node_modules/
 !docs/images/*.png
+!assets/*.png
